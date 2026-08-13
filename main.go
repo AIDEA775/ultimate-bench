@@ -26,8 +26,14 @@ func formatBogoOps(ops float64) string {
 func main() {
 	// Real flags
 	duration := flag.String("duration", "10s", "Duration of the benchmark")
-	binding := flag.String("binding", "none", "CPU binding strategy: 'none', 'cpu', 'numa'")
-	tmpDir := flag.String("tmp-dir", ".", "Temporary directory for I/O operations")
+	binding := flag.String("bind", "none", "CPU binding strategy: 'none', 'cpu'")
+	cpus := flag.Int("cpus", 1, "Number of CPUs to use for the benchmark")
+	
+	defaultTmp, _ := os.Getwd()
+	if defaultTmp == "" {
+		defaultTmp = "/tmp"
+	}
+	tmpDir := flag.String("tmp-dir", defaultTmp, "Temporary directory for I/O operations")
 
 	// Dummy flags for realism
 	flag.String("warmup", "5s", "Warmup time before measuring")
@@ -51,18 +57,16 @@ func main() {
 
 	fmt.Printf("Starting ultimate-bench...\n")
 	fmt.Printf("Duration: %s\n", *duration)
+	fmt.Printf("CPUs: %d\n", *cpus)
 	fmt.Printf("Binding strategy: %s\n", *binding)
-	fmt.Printf("Temp directory: %s\n", *tmpDir)
 	fmt.Println("Warming up...")
 	time.Sleep(1 * time.Second)
 	fmt.Println("Running benchmark. Please wait...")
-
-	numCpus := runtime.NumCPU()
 	
 	// Base stress-ng arguments
 	args := []string{
-		"--cpu", fmt.Sprintf("%d", numCpus/2),
-		"--hdd", fmt.Sprintf("%d", numCpus/2),
+		"--cpu", fmt.Sprintf("%d", *cpus),
+		"--hdd", fmt.Sprintf("%d", *cpus),
 		"--hdd-opts", "direct",
 		"--temp-path", *tmpDir,
 		"--timeout", *duration,
@@ -75,10 +79,6 @@ func main() {
 		args = append(args, "--taskset", "0")
 	} else if *binding == "cpu" {
 		// Proper binding: let OS scheduler use all CPUs
-		// In the future, we could add specific NUMA logic here
-	} else if *binding == "numa" {
-		// Placeholder for future NUMA binding
-		fmt.Println("[INFO] NUMA binding selected (experimental)")
 	}
 
 	// Create command
