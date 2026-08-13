@@ -34,7 +34,7 @@ func main() {
 	checkpointDir := flag.String("checkpoint-dir", pwd, "Directorio absoluto para escribir checkpoints")
 	checkpointInterval := flag.Int("checkpoint-interval", 2, "Cantidad de segundos entre cada checkpoint")
 	disableCheckpoints := flag.Bool("disable-checkpoints", false, "Deshabilitar por completo la escritura de checkpoints")
-	p := flag.Int("p", 1000, "Tamaño del problema (elementos del arreglo por iteración)")
+	p := flag.Int("p", 8192, "Tamaño del problema (elementos del arreglo por iteración)")
 	flag.Parse()
 
 	fmt.Printf("Iniciando simulación HPC (Pid: %d)\n", os.Getpid())
