@@ -58,17 +58,23 @@ func main() {
 
 	barrier := NewHPCBarrier(*workers, ctx)
 	var checkpointEpoch atomic.Uint32
+	checkpointDone := make(chan struct{}, 1)
 
 	if !*disableCheckpoints {
 		go func() {
-			ticker := time.NewTicker(time.Duration(*checkpointInterval) * time.Second)
-			defer ticker.Stop()
 			for {
 				select {
 				case <-ctx.Done():
 					return
-				case <-ticker.C:
+				case <-time.After(time.Duration(*checkpointInterval) * time.Second):
 					checkpointEpoch.Add(1)
+					// Esperar a que los workers terminen el checkpoint actual
+					// antes de empezar a contar el tiempo para el próximo
+					select {
+					case <-ctx.Done():
+						return
+					case <-checkpointDone:
+					}
 				}
 			}
 		}()
@@ -79,7 +85,7 @@ func main() {
 	// Launch workers
 	for w := 0; w < *workers; w++ {
 		wg.Add(1)
-		go worker(ctx, w, *p, *checkpointDir, *disableCheckpoints, *verbose, &totalOps, &wg, barrier, &checkpointEpoch)
+		go worker(ctx, w, *p, *checkpointDir, *disableCheckpoints, *verbose, &totalOps, &wg, barrier, &checkpointEpoch, checkpointDone)
 	}
 
 	// Wait for workers to finish
@@ -163,7 +169,7 @@ func cleanupCheckpoints(dir string, workers int) {
 	}
 }
 
-func worker(ctx context.Context, id int, p int, checkpointDir string, disableCheckpoints bool, verbose bool, totalOps *atomic.Uint64, wg *sync.WaitGroup, barrier *HPCBarrier, checkpointEpoch *atomic.Uint32) {
+func worker(ctx context.Context, id int, p int, checkpointDir string, disableCheckpoints bool, verbose bool, totalOps *atomic.Uint64, wg *sync.WaitGroup, barrier *HPCBarrier, checkpointEpoch *atomic.Uint32, checkpointDone chan struct{}) {
 	defer wg.Done()
 
 	// Asignar un arreglo propio para forzar lecturas/escrituras en memoria y evidenciar cache misses
@@ -242,6 +248,14 @@ func worker(ctx context.Context, id int, p int, checkpointDir string, disableChe
 				// Sincronizar todos los workers después de escribir para arrancar el cómputo a la vez (Barrier 2)
 				if !barrier.Wait() {
 					return
+				}
+				
+				// El worker 0 le avisa al coordinador que el checkpoint global ha terminado
+				if id == 0 {
+					select {
+					case checkpointDone <- struct{}{}:
+					default:
+					}
 				}
 				
 				if verbose {
