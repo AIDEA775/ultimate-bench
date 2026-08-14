@@ -27,6 +27,7 @@ func main() {
 	if err != nil {
 		pwd = "/tmp"
 	}
+	pwd = filepath.Join(pwd, ".tmp")
 
 	// Flags
 	durationSec := flag.Int("duration", 10, "Duración de la simulación en segundos")
@@ -36,10 +37,27 @@ func main() {
 	disableCheckpoints := flag.Bool("disable-checkpoints", false, "Deshabilitar por completo la escritura de checkpoints")
 	verbose := flag.Bool("v", false, "Modo verboso: imprime logs de la sincronización de barreras")
 	p := flag.Int("p", 8192, "Tamaño del problema (elementos del arreglo por iteración)")
+
+	// Opciones falsas (placeholders para dar realismo al help)
+	_ = flag.String("engine", "default", "Motor de simulación a utilizar (default, quantum, fluid-dynamics, monte-carlo)")
+	_ = flag.Int64("seed", 42, "Semilla para el generador de números pseudoaleatorios")
+	_ = flag.String("precision", "float64", "Precisión aritmética (float32, float64, quad)")
+	_ = flag.String("mesh-size", "1024x1024x1024", "Dimensiones de la malla computacional")
+	_ = flag.Bool("use-gpu", false, "Habilitar aceleración por hardware (CUDA/ROCm/Metal)")
+	_ = flag.String("network-topology", "hypercube", "Topología de red simulada (torus, hypercube, fat-tree)")
+	_ = flag.Float64("temperature", 298.15, "Temperatura inicial del sistema en Kelvin")
+	_ = flag.Bool("enable-telemetry", true, "Habilitar la exportación de métricas a Prometheus/gRPC")
+	_ = flag.Float64("cfl-condition", 0.45, "Número de Courant-Friedrichs-Lewy (CFL) máximo permitido")
+	_ = flag.String("boundary-conditions", "periodic", "Condiciones de contorno en la malla (periodic, dirichlet, neumann)")
+	_ = flag.Bool("debug-nan", false, "Interrumpir la simulación al detectar NaNs o Infs en los tensores")
+	_ = flag.Int("log-level", 1, "Nivel de detalle de los logs (0=quiet, 1=info, 2=debug, 3=trace)")
+
 	flag.Parse()
 
-	fmt.Printf("Iniciando simulación HPC (Pid: %d)\n", os.Getpid())
+	fmt.Printf("Iniciando simulación (Pid: %d)\n", os.Getpid())
 	fmt.Printf("Tamaño del problema (p): %d\n", *p)
+	fmt.Printf("Cantidad de workers: %d\n", *workers)
+	fmt.Printf("---\n")
 
 	// Ensure checkpoint directory exists
 	if !*disableCheckpoints {
